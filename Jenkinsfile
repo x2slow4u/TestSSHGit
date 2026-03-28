@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Repository already checked out by Jenkins'
+                echo 'Cloning my-app repository'
                 sh 'ls -la'
             }
         }
