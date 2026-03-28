@@ -1,32 +1,51 @@
 pipeline {
     agent any
+    
     stages {
-        stage('Prepare') {
+        stage('Checkout') {
             steps {
-                echo '=== Начинаем сборку ==='
+                echo 'Repository already checked out by Jenkins'
+                sh 'ls -la'
             }
         }
-        stage('Check Environment') {
+        
+        stage('Build Docker Image') {
             steps {
                 sh '''
-                    echo "=== Системная информация ==="
-                    uname -a
-                    echo "=== Текущая директория ==="
-                    pwd
-                    echo "=== Содержимое ==="
-                    ls -la
+                    echo "=== Building Docker image ==="
+                    # Собираем образ с тегом build-${BUILD_NUMBER}
+                    docker build -t testapp:${BUILD_NUMBER} .
+                    docker tag testapp:${BUILD_NUMBER} testapp:latest
+                    echo "Image built: testapp:${BUILD_NUMBER}"
                 '''
             }
         }
-        stage('Test') {
+        
+        stage('Test Image') {
             steps {
-                echo '=== Все тесты пройдены! ==='
+                sh '''
+                    echo "=== Testing Docker image ==="
+                    docker run --rm testapp:${BUILD_NUMBER} echo "Container works!"
+                '''
+            }
+        }
+        
+        stage('Show Images') {
+            steps {
+                sh '''
+                    echo "=== Docker images on server ==="
+                    docker images | grep testapp || echo "No images found"
+                '''
             }
         }
     }
+    
     post {
-        always {
-            echo '=== Сборка завершена ==='
+        success {
+            echo "Pipeline completed! Image built successfully."
+        }
+        failure {
+            echo "Pipeline failed!"
         }
     }
 }

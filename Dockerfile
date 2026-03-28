@@ -1,2 +1,3 @@
 FROM alpine:latest
-CMD echo "Hello from Docker container!"
+RUN echo "Hello from Jenkins CI/CD Pipeline!" > /hello.txt
+CMD ["cat", "/hello.txt"]
