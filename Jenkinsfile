@@ -12,6 +12,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "Cloning ${APP_NAME} repository..."
+		git branch: 'main',
                 git credentialsId: 'github-ssh',
                     url: 'git@github.com:x2slow4u/my-app.git'
                 sh 'ls -la'
