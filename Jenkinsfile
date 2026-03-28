@@ -12,9 +12,13 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "Cloning ${APP_NAME} repository..."
-		git branch: 'main',
-                git credentialsId: 'github-ssh',
-                    url: 'git@github.com:x2slow4u/my-app.git'
+                checkout([$class: 'GitSCM',
+                    branches: [[name: 'main']],
+                    userRemoteConfigs: [[
+                        url: 'git@github.com:x2slow4u/my-app.git',
+                        credentialsId: 'github-ssh'
+                    ]]
+                ])
                 sh 'ls -la'
             }
         }
@@ -87,22 +91,13 @@ pipeline {
     
     post {
         success {
-            echo """
-            PIPELINE SUCCESSFUL
-            
-            Image: ${IMAGE}:${BUILD_NUMBER}
-            URL: https://github.com/${DOCKER_USER}/${APP_NAME}/pkgs/container/${APP_NAME}
-            
-            Build completed successfully
-            """
+            echo "PIPELINE SUCCESSFUL"
+            echo "Image: ${IMAGE}:${BUILD_NUMBER}"
+            echo "URL: https://github.com/${DOCKER_USER}/${APP_NAME}/pkgs/container/${APP_NAME}"
         }
         failure {
-            echo """
-            PIPELINE FAILED
-            
-            Check the console output for details.
-            Build number: ${BUILD_NUMBER}
-            """
+            echo "PIPELINE FAILED"
+            echo "Build number: ${BUILD_NUMBER}"
         }
         always {
             echo "Pipeline finished. Build: ${BUILD_NUMBER}, Result: ${currentBuild.result}"
