@@ -3,14 +3,17 @@ pipeline {
     
     environment {
         APP_NAME = 'my-app'
-        DOCKER_REGISTRY = 'docker.io'  # для Docker Hub
-        // IMAGE = "${DOCKER_REGISTRY}/x2slow4u/${APP_NAME}"  # раскомментировать для push
+        DOCKER_REGISTRY = 'ghcr.io'
+        DOCKER_USER = 'x2slow4u'
+        IMAGE = "${DOCKER_REGISTRY}/${DOCKER_USER}/${APP_NAME}"
     }
     
     stages {
         stage('Checkout') {
             steps {
-                echo "Cloning ${APP_NAME} repository"
+                echo "Cloning ${APP_NAME} repository..."
+                git credentialsId: 'github-ssh',
+                    url: 'git@github.com:x2slow4u/my-app.git'
                 sh 'ls -la'
             }
         }
@@ -21,6 +24,7 @@ pipeline {
                     echo "Building Docker image..."
                     docker build -t ${APP_NAME}:${BUILD_NUMBER} .
                     docker tag ${APP_NAME}:${BUILD_NUMBER} ${APP_NAME}:latest
+                    echo "Image built: ${APP_NAME}:${BUILD_NUMBER}"
                 '''
             }
         }
@@ -34,11 +38,47 @@ pipeline {
             }
         }
         
-        stage('Show Images') {
+        stage('Tag for GHCR') {
             steps {
                 sh '''
-                    echo "Docker images:"
+                    echo "Tagging image for GitHub Container Registry..."
+                    docker tag ${APP_NAME}:${BUILD_NUMBER} ${IMAGE}:${BUILD_NUMBER}
+                    docker tag ${APP_NAME}:latest ${IMAGE}:latest
+                    echo "Tags created:"
                     docker images | grep ${APP_NAME}
+                '''
+            }
+        }
+        
+        stage('Push to GHCR') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-ghcr',
+                    usernameVariable: 'GH_USERNAME',
+                    passwordVariable: 'GH_TOKEN'
+                )]) {
+                    sh '''
+                        echo "Logging into GitHub Container Registry..."
+                        echo ${GH_TOKEN} | docker login ghcr.io -u ${GH_USERNAME} --password-stdin
+                        
+                        echo "Pushing image: ${IMAGE}:${BUILD_NUMBER}"
+                        docker push ${IMAGE}:${BUILD_NUMBER}
+                        
+                        echo "Pushing image: ${IMAGE}:latest"
+                        docker push ${IMAGE}:latest
+                        
+                        echo "Push completed"
+                    '''
+                }
+            }
+        }
+        
+        stage('Clean Up') {
+            steps {
+                sh '''
+                    echo "Cleaning up..."
+                    docker logout ghcr.io || true
+                    echo "Cleanup completed"
                 '''
             }
         }
@@ -46,10 +86,25 @@ pipeline {
     
     post {
         success {
-            echo "Pipeline completed! Image: ${APP_NAME}:${BUILD_NUMBER}"
+            echo """
+            PIPELINE SUCCESSFUL
+            
+            Image: ${IMAGE}:${BUILD_NUMBER}
+            URL: https://github.com/${DOCKER_USER}/${APP_NAME}/pkgs/container/${APP_NAME}
+            
+            Build completed successfully
+            """
         }
         failure {
-            echo "Pipeline failed!"
+            echo """
+            PIPELINE FAILED
+            
+            Check the console output for details.
+            Build number: ${BUILD_NUMBER}
+            """
+        }
+        always {
+            echo "Pipeline finished. Build: ${BUILD_NUMBER}, Result: ${currentBuild.result}"
         }
     }
 }
