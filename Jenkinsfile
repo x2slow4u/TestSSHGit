@@ -1,10 +1,16 @@
 pipeline {
     agent any
     
+    environment {
+        APP_NAME = 'my-app'
+        DOCKER_REGISTRY = 'docker.io'  # для Docker Hub
+        // IMAGE = "${DOCKER_REGISTRY}/x2slow4u/${APP_NAME}"  # раскомментировать для push
+    }
+    
     stages {
         stage('Checkout') {
             steps {
-                echo 'Cloning my-app repository'
+                echo "Cloning ${APP_NAME} repository"
                 sh 'ls -la'
             }
         }
@@ -12,11 +18,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    echo "=== Building Docker image ==="
-                    # Собираем образ с тегом build-${BUILD_NUMBER}
-                    docker build -t testapp:${BUILD_NUMBER} .
-                    docker tag testapp:${BUILD_NUMBER} testapp:latest
-                    echo "Image built: testapp:${BUILD_NUMBER}"
+                    echo "Building Docker image..."
+                    docker build -t ${APP_NAME}:${BUILD_NUMBER} .
+                    docker tag ${APP_NAME}:${BUILD_NUMBER} ${APP_NAME}:latest
                 '''
             }
         }
@@ -24,8 +28,8 @@ pipeline {
         stage('Test Image') {
             steps {
                 sh '''
-                    echo "=== Testing Docker image ==="
-                    docker run --rm testapp:${BUILD_NUMBER} echo "Container works!"
+                    echo "Testing image..."
+                    docker run --rm ${APP_NAME}:${BUILD_NUMBER} echo "Container works!"
                 '''
             }
         }
@@ -33,8 +37,8 @@ pipeline {
         stage('Show Images') {
             steps {
                 sh '''
-                    echo "=== Docker images on server ==="
-                    docker images | grep testapp || echo "No images found"
+                    echo "Docker images:"
+                    docker images | grep ${APP_NAME}
                 '''
             }
         }
@@ -42,7 +46,7 @@ pipeline {
     
     post {
         success {
-            echo "Pipeline completed! Image built successfully."
+            echo "Pipeline completed! Image: ${APP_NAME}:${BUILD_NUMBER}"
         }
         failure {
             echo "Pipeline failed!"
